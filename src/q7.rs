@@ -34,28 +34,27 @@ struct Hand {
 
 impl PartialOrd for Hand {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.hand_type == other.hand_type {
-            for i in 0..self.cards.len() {
-                if self.cards[i].value() > other.cards[i].value() {
-                    return Some(Ordering::Greater);
-                } else if self.cards[i].value() < other.cards[i].value() {
-                    return Some(Ordering::Less);
-                }
-            }
-
-            return Some(Ordering::Equal);
-        }
-
-        self.hand_type.partial_cmp(&other.hand_type)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Hand {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        if self.hand_type == other.hand_type {
+            for i in 0..self.cards.len() {
+                match self.cards[i].value().cmp(&other.cards[i].value()) {
+                    Ordering::Greater => return Ordering::Greater,
+                    Ordering::Less => return Ordering::Less,
+                    Ordering::Equal => continue,
+                }
+            }
+
+            return Ordering::Equal;
+        }
+
+        self.hand_type.partial_cmp(&other.hand_type).unwrap()
     }
 }
-
 
 impl Hand {
     fn new(point: u32) -> Hand {
@@ -117,12 +116,6 @@ enum HandType {
     FullHouse,
     FourOfAKind,
     FiveOfAKind,
-}
-
-impl Ord for HandType {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cmp(&other)
-    }
 }
 
 
