@@ -1,163 +1,107 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Lines},
 };
 
 struct Map {
-    map: Vec<Vec<Pipe>>,
-    current_pipe: Option<Pipe>,
+    map: HashMap<(usize, usize), Pipe>,
+    main_loop: HashMap<(usize, usize), Pipe>,
+    current_pipe: Option<((usize, usize), Pipe)>,
     direction: Direction,
 }
 
 impl Map {
     fn new() -> Self {
         Self {
-            map: Vec::new(),
+            map: HashMap::new(),
+            main_loop: HashMap::new(),
             current_pipe: None,
             direction: Direction::N,
         }
     }
 
-    fn add_line(&mut self, line: Vec<Pipe>) {
-        self.map.push(line);
+    fn add_start(&mut self, coordinates: (usize, usize), pipe: Pipe) {
+        self.current_pipe = Some((coordinates, pipe));
+        self.main_loop.insert(coordinates, pipe);
     }
 
-    fn add_start(&mut self, pipe: Option<Pipe>) {
-        self.current_pipe = pipe;
+    fn traverse(&mut self) -> usize {
+        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+
+        for direction in directions.iter() {
+            let found = self.move_next(*direction);
+            if found {
+                break;
+            }
+        }
+
+        let mut count = 1;
+        while let Some((_, pipe)) = self.current_pipe {
+            match pipe {
+                Pipe::Start => {
+                    break;
+                }
+                _ => {
+                    self.move_next(self.direction);
+                    count += 1;
+                }
+            }
+        }
+
+        count
     }
 
-    fn set_next_pipe(&mut self, direction: Direction) -> bool {
-        let (x, y) = match self.current_pipe.unwrap() {
-            Pipe::NS(x, y) => (x, y),
-            Pipe::EW(x, y) => (x, y),
-            Pipe::NE(x, y) => (x, y),
-            Pipe::NW(x, y) => (x, y),
-            Pipe::SE(x, y) => (x, y),
-            Pipe::SW(x, y) => (x, y),
-            Pipe::Start(x, y) => (x, y),
-            Pipe::None(x, y) => (x, y),
-        };
-
+    fn move_next(&mut self, direction: Direction) -> bool {
+        let (x, y) = self.current_pipe.unwrap().0;
         let next_pipe: Option<&Pipe>;
+        let coordinates: (usize, usize);
+
         match direction {
             Direction::N => {
-                next_pipe = self.map.get(x - 1).and_then(|x| x.get(y));
-                if let Some(next_pipe) = next_pipe {
-                    match next_pipe {
-                        Pipe::NS(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        Pipe::SE(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::E;
-                            return true;
-                        }
-                        Pipe::SW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::W;
-                            return true;
-                        }
-                        Pipe::Start(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        _ => {
-                            return false;
-                        }
-                    }
-                }
+                coordinates = (x - 1, y);
+                next_pipe = self.map.get(&coordinates);
             }
             Direction::E => {
-                next_pipe = self.map.get(x).and_then(|x| x.get(y + 1));
-                if let Some(next_pipe) = next_pipe {
-                    match next_pipe {
-                        Pipe::EW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::E;
-                            return true;
-                        }
-                        Pipe::NW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        Pipe::SW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::S;
-                            return true;
-                        }
-                        Pipe::Start(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        _ => {
-                            return false;
-                        }
-                    }
-                }
+                coordinates = (x, y + 1);
+                next_pipe = self.map.get(&coordinates);
             }
             Direction::S => {
-                next_pipe = self.map.get(x + 1).and_then(|x| x.get(y));
-                if let Some(next_pipe) = next_pipe {
-                    match next_pipe {
-                        Pipe::NS(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::S;
-                            return true;
-                        }
-                        Pipe::NE(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::E;
-                            return true;
-                        }
-                        Pipe::NW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::W;
-                            return true;
-                        }
-                        Pipe::Start(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        _ => {
-                            return false;
-                        }
-                    }
-                }
+                coordinates = (x + 1, y);
+                next_pipe = self.map.get(&coordinates);
             }
             Direction::W => {
-                next_pipe = self.map.get(x).and_then(|x| x.get(y - 1));
-                if let Some(next_pipe) = next_pipe {
-                    match next_pipe {
-                        Pipe::EW(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::W;
-                            return true;
-                        }
-                        Pipe::NE(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        Pipe::SE(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::S;
-                            return true;
-                        }
-                        Pipe::Start(_, _) => {
-                            self.current_pipe = Some(*next_pipe);
-                            self.direction = Direction::N;
-                            return true;
-                        }
-                        _ => {
-                            return false;
-                        }
-                    }
+                coordinates = (x, y - 1);
+                next_pipe = self.map.get(&coordinates);
+            }
+        }
+
+        if let Some(next_pipe) = next_pipe {
+            match next_pipe {
+                Pipe::None => {
+                    return false;
+                }
+                _ => {
+                    self.current_pipe = Some((coordinates, *next_pipe));
+                    self.main_loop.insert(coordinates, *next_pipe);
+                    self.direction = match (*next_pipe, direction) {
+                        (Pipe::NS, Direction::N) => Direction::N,
+                        (Pipe::NS, Direction::S) => Direction::S,
+                        (Pipe::SE, Direction::N) => Direction::E,
+                        (Pipe::SE, Direction::W) => Direction::S,
+                        (Pipe::SW, Direction::N) => Direction::W,
+                        (Pipe::SW, Direction::E) => Direction::S,
+                        (Pipe::EW, Direction::E) => Direction::E,
+                        (Pipe::EW, Direction::W) => Direction::W,
+                        (Pipe::NE, Direction::S) => Direction::E,
+                        (Pipe::NE, Direction::W) => Direction::N,
+                        (Pipe::NW, Direction::S) => Direction::W,
+                        (Pipe::NW, Direction::E) => Direction::N,
+                        (Pipe::Start, _) => Direction::N,
+                        _ => panic!("Invalid pipe"),
+                    };
+
+                    return true;
                 }
             }
         }
@@ -167,14 +111,14 @@ impl Map {
 
 #[derive(Debug, Clone, Copy)]
 enum Pipe {
-    NS(usize, usize),
-    EW(usize, usize),
-    NE(usize, usize),
-    NW(usize, usize),
-    SE(usize, usize),
-    SW(usize, usize),
-    Start(usize, usize),
-    None(usize, usize),
+    NS,
+    EW,
+    NE,
+    NW,
+    SE,
+    SW,
+    Start,
+    None,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -191,55 +135,30 @@ pub fn part1(lines: Lines<BufReader<File>>) {
     for (i, line) in lines.enumerate() {
         let line = line.unwrap();
 
-        let mut pipes = Vec::new();
-
         for (j, char) in line.chars().enumerate() {
-            let pipe = match char {
+            let (coordinates, pipe) = match char {
                 'S' => {
-                    let pipe = Pipe::Start(i, j);
-                    map.add_start(Some(pipe));
-                    pipe
+                    let pipe = Pipe::Start;
+                    map.add_start((i, j), pipe);
+                    ((i, j), pipe)
                 }
-                '|' => Pipe::NS(i, j),
-                '-' => Pipe::EW(i, j),
-                'L' => Pipe::NE(i, j),
-                'J' => Pipe::NW(i, j),
-                '7' => Pipe::SW(i, j),
-                'F' => Pipe::SE(i, j),
-                '.' => Pipe::None(i, j),
+                '|' => ((i, j), Pipe::NS),
+                '-' => ((i, j), Pipe::EW),
+                'L' => ((i, j), Pipe::NE),
+                'J' => ((i, j), Pipe::NW),
+                '7' => ((i, j), Pipe::SW),
+                'F' => ((i, j), Pipe::SE),
+                '.' => ((i, j), Pipe::None),
                 _ => {
                     panic!("Invalid char");
                 }
             };
 
-            pipes.push(pipe);
-        }
-
-        map.add_line(pipes);
-    }
-
-    let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
-
-    for direction in directions.iter() {
-        let found = map.set_next_pipe(*direction);
-        if found {
-            break;
+            map.map.insert(coordinates, pipe);
         }
     }
 
-    let mut count = 0;
-    for _ in 0..100000 {
-        count += 1;
-        match map.current_pipe.unwrap() {
-            Pipe::Start(_, _) => {
-                break;
-            }
-            _ => {
-                map.set_next_pipe(map.direction);
-            }
-        }
-
-    }
-
-    println!("Count: {}", count / 2);
+    let count = map.traverse();
+    println!("Part 1: {}", count / 2);
 }
+
