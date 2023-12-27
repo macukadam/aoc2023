@@ -8,10 +8,12 @@ mod q07;
 mod q08;
 mod q09;
 mod q10;
+mod q11;
+mod q12;
 mod read_input;
 
 fn main() {
-    let lines = read_input::read_input_lines("input10.txt");
-    q10::part2(lines);
+    let lines = read_input::read_input_lines("input12.txt");
+    q12::part1(lines);
 }
 
