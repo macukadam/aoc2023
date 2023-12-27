@@ -9,6 +9,8 @@ struct Map {
     main_loop: HashMap<(usize, usize), Pipe>,
     current_pipe: Option<((usize, usize), Pipe)>,
     direction: Direction,
+    width: usize,
+    height: usize,
 }
 
 impl Map {
@@ -18,6 +20,8 @@ impl Map {
             main_loop: HashMap::new(),
             current_pipe: None,
             direction: Direction::N,
+            width: 0,
+            height: 0,
         }
     }
 
@@ -27,25 +31,19 @@ impl Map {
     }
 
     fn traverse(&mut self) -> usize {
-        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
-
-        for direction in directions.iter() {
-            let found = self.move_next(*direction);
-            if found {
+        for direction in [Direction::N, Direction::E, Direction::S, Direction::W].iter() {
+            if self.move_next(*direction) {
                 break;
             }
         }
 
         let mut count = 1;
         while let Some((_, pipe)) = self.current_pipe {
-            match pipe {
-                Pipe::Start => {
-                    break;
-                }
-                _ => {
-                    self.move_next(self.direction);
-                    count += 1;
-                }
+            if let Pipe::Start = pipe {
+                break;
+            } else {
+                self.move_next(self.direction);
+                count += 1;
             }
         }
 
@@ -107,6 +105,78 @@ impl Map {
         }
         false
     }
+
+    fn load_map(lines: Lines<BufReader<File>>) -> Map {
+        let mut map = Map::new();
+
+        let mut height = 0;
+
+        for (i, line) in lines.enumerate() {
+            let line = line.unwrap();
+            if i == 0 {
+                map.width = line.len();
+            }
+
+            for (j, char) in line.chars().enumerate() {
+                let (coordinates, pipe) = match char {
+                    'S' => {
+                        let pipe = Pipe::Start;
+                        map.add_start((i, j), pipe);
+                        ((i, j), pipe)
+                    }
+                    '|' => ((i, j), Pipe::NS),
+                    '-' => ((i, j), Pipe::EW),
+                    'L' => ((i, j), Pipe::NE),
+                    'J' => ((i, j), Pipe::NW),
+                    '7' => ((i, j), Pipe::SW),
+                    'F' => ((i, j), Pipe::SE),
+                    '.' => ((i, j), Pipe::None),
+                    _ => {
+                        panic!("Invalid char");
+                    }
+                };
+                map.map.insert(coordinates, pipe);
+            }
+            height += 1;
+        }
+
+        map.height = height;
+        map
+    }
+
+    fn ray_beam_method(&mut self) -> usize {
+        self.traverse();
+
+        let mut crossed = 0;
+        let mut count = 0;
+
+        for i in 0..self.height {
+            for j in 0..self.width {
+                if self.main_loop.get(&(i, j)).is_some() {
+                    continue;
+                }
+
+                // ray beams to the east
+                for z in j..self.width {
+                    if let Some(pipe) = self.main_loop.get(&(i, z)) {
+                        match pipe {
+                            Pipe::NS | Pipe::NW | Pipe::NE | Pipe::Start => {
+                                crossed += 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                if crossed % 2 == 1 {
+                    count += 1;
+                }
+                crossed = 0;
+            }
+        }
+
+        count
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -130,35 +200,13 @@ enum Direction {
 }
 
 pub fn part1(lines: Lines<BufReader<File>>) {
-    let mut map = Map::new();
-
-    for (i, line) in lines.enumerate() {
-        let line = line.unwrap();
-
-        for (j, char) in line.chars().enumerate() {
-            let (coordinates, pipe) = match char {
-                'S' => {
-                    let pipe = Pipe::Start;
-                    map.add_start((i, j), pipe);
-                    ((i, j), pipe)
-                }
-                '|' => ((i, j), Pipe::NS),
-                '-' => ((i, j), Pipe::EW),
-                'L' => ((i, j), Pipe::NE),
-                'J' => ((i, j), Pipe::NW),
-                '7' => ((i, j), Pipe::SW),
-                'F' => ((i, j), Pipe::SE),
-                '.' => ((i, j), Pipe::None),
-                _ => {
-                    panic!("Invalid char");
-                }
-            };
-
-            map.map.insert(coordinates, pipe);
-        }
-    }
-
+    let mut map = Map::load_map(lines);
     let count = map.traverse();
     println!("Part 1: {}", count / 2);
 }
 
+pub fn part2(lines: Lines<BufReader<File>>) {
+    let mut map = Map::load_map(lines);
+    let count = map.ray_beam_method();
+    println!("Part 2: {}", count);
+}

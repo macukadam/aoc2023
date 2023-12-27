@@ -12,6 +12,6 @@ mod read_input;
 
 fn main() {
     let lines = read_input::read_input_lines("input10.txt");
-    q10::part1(lines);
+    q10::part2(lines);
 }
 
